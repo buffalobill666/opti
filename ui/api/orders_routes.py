@@ -12,7 +12,7 @@ GET    /api/orders/{exchange}/instruments — получить инструме�
 import os
 import re
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date, timedelta
 from fastapi import APIRouter, Request, HTTPException, Query
 
 from ui.key_store import get_decrypted_keys
@@ -209,7 +209,7 @@ def _days_to_expiry(expiration: datetime) -> int:
     return (expiration.date() - now.date()).days
 
 
-def _classify_period(days: int) -> str:
+def _compute_expiry_sets(expiry_dates: list[date]) -> dict[str, set[date]]:
     """
     Классифицировать период по дням до экспирации.
     
@@ -221,16 +221,25 @@ def _classify_period(days: int) -> str:
     weekly: 2-14 дней
     monthly: > 14 дней
     """
-    # Практический маппинг под UX:
-    # daily  = ближайшие 1-3 календарных дня
-    # weekly = 4-14 дней
-    # monthly= >14
-    if days <= 3:
-        return "daily"
-    elif days <= 14:
-        return "weekly"
-    else:
-        return "monthly"
+    # Bybit может возвращать инструменты в произвольном порядке, а системная дата/UTC
+    # может быть сдвинута (особенно если сервис не перезапускали). Поэтому серии
+    # строим от фактически доступных экспираций: берём самые ранние даты в ответе.
+    upcoming = sorted({d for d in expiry_dates})
+
+    daily = set(upcoming[:3])
+
+    fridays = [d for d in upcoming if d.weekday() == 4]  # Monday=0 ... Friday=4
+    weekly = set(fridays[:3])
+
+    monthly: set[date] = set()
+    if len(fridays) >= 3:
+        anchor = fridays[2]
+        for k in range(3):
+            candidate = anchor + timedelta(days=28 * k)
+            if candidate in upcoming:
+                monthly.add(candidate)
+
+    return {"daily": daily, "weekly": weekly, "monthly": monthly}
 
 
 def _classify_period_detailed(instrument: dict, exchange: str) -> dict:
@@ -327,10 +336,13 @@ async def get_instruments(
                 testnet=testnet,
                 demo=is_demo,
             )
-            result = await client.get_instruments("bybit", base_coin=asset, status="Trading")
+            # Не фильтруем status на стороне API — иначе в день экспирации часть инструментов
+            # становится Delivering и пропадает из списка.
+            result = await client.get_instruments("bybit", base_coin=asset, status=None)
             instruments = result.get("instruments", [])
             # Парсим Bybit инструменты с новой классификацией
             parsed = []
+            expiry_dates: list[date] = []
             for inst in instruments:
                 name = inst.get("symbol", "")
                 # Bybit формат: BTC-27DEC24-80000-C
@@ -369,7 +381,34 @@ async def get_instruments(
                     "tick_value": inst.get("tick_value", ""),
                     "min_trade_amount": inst.get("lot_size", 1),
                     "is_active": inst.get("status") == "Trading",
+                    "status": inst.get("status"),
                 })
+
+            # Формируем серии экспираций и проставляем period
+            sets = _compute_expiry_sets(expiry_dates)
+            for item in parsed:
+                exp_iso = item.get("expiration")
+                if not exp_iso:
+                    continue
+                try:
+                    exp_date = datetime.fromisoformat(exp_iso.replace("Z", "+00:00")).date()
+                except Exception:
+                    continue
+
+                if exp_date in sets["monthly"]:
+                    item["period"] = "monthly"
+                elif exp_date in sets["weekly"]:
+                    item["period"] = "weekly"
+                elif exp_date in sets["daily"]:
+                    item["period"] = "daily"
+                else:
+                    item["period"] = "other"
+
+            # Фильтруем статусы: Trading + Delivering + PreLaunch.
+            # На Bybit часть ближайших/дальних экспираций может быть PreLaunch,
+            # но пользователю нужно их видеть для выбора "nearest/middle/farthest".
+            allowed_statuses = {"Trading", "Delivering", "PreLaunch"}
+            parsed = [p for p in parsed if (p.get("status") in allowed_statuses)]
         else:
             client.init_deribit(
                 client_id=keys["api_key"],
