@@ -1,0 +1,131 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-bar-chart"></i> Позиции</h4>
+
+<div class="btn-group mb-4" role="group">
+    <button type="button" class="btn btn-outline-primary active" onclick="loadPositions('bybit')">Bybit</button>
+    <button type="button" class="btn btn-outline-primary" onclick="loadPositions('deribit')">Deribit</button>
+</div>
+
+<!-- Сводка греков -->
+<div class="row g-4 mb-4" id="greeks-summary"></div>
+
+<!-- Таблица позиций -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-table"></i> Открытые позиции
+        <button class="btn btn-sm btn-outline-light ms-3" onclick="refreshPositions()">
+            <i class="bi bi-arrow-clockwise"></i> Обновить
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover" id="positions-table">
+                <thead>
+                    <tr>
+                        <th>Инструмент</th>
+                        <th>Side</th>
+                        <th>Size</th>
+                        <th>Avg Price</th>
+                        <th>Mark Price</th>
+                        <th>P&L</th>
+                        <th>Delta</th>
+                        <th>Gamma</th>
+                        <th>Theta</th>
+                        <th>Vega</th>
+                    </tr>
+                </thead>
+                <tbody id="positions-tbody">
+                    <tr><td colspan="10" class="text-center text-muted">Выберите биржу</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentExchange = 'bybit';
+
+    function loadPositions(exchange) {
+        currentExchange = exchange;
+        document.querySelectorAll('.btn-group .btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        fetch(`/api/positions/${exchange}/summary`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    renderGreeksSummary(data.data);
+                    renderPositionsTable(data.data.positions);
+                } else {
+                    showToast('Ошибка', data.error, 'danger');
+                }
+            })
+            .catch(err => showToast('Ошибка', err.message, 'danger'));
+    }
+
+    function renderGreeksSummary(data) {
+        document.getElementById('greeks-summary').innerHTML = `
+            <div class="col-md-2"><div class="card stat-card"><div class="card-body text-center">
+                <h6 class="text-muted">Позиций</h6><h4>${data.total_positions}</h4>
+            </div></div></div>
+            <div class="col-md-2"><div class="card stat-card"><div class="card-body text-center">
+                <h6 class="text-muted">Delta</h6><h4>${data.total_delta.toFixed(4)}</h4>
+            </div></div></div>
+            <div class="col-md-2"><div class="card stat-card"><div class="card-body text-center">
+                <h6 class="text-muted">Gamma</h6><h4>${data.total_gamma.toFixed(4)}</h4>
+            </div></div></div>
+            <div class="col-md-2"><div class="card stat-card"><div class="card-body text-center">
+                <h6 class="text-muted">Theta</h6><h4>${data.total_theta.toFixed(4)}</h4>
+            </div></div></div>
+            <div class="col-md-2"><div class="card stat-card"><div class="card-body text-center">
+                <h6 class="text-muted">Vega</h6><h4>${data.total_vega.toFixed(4)}</h4>
+            </div></div></div>
+            <div class="col-md-2"><div class="card stat-card"><div class="card-body text-center">
+                <h6 class="text-muted">P&L</h6>
+                <h4 class="${data.total_unrealized_pnl >= 0 ? 'text-success' : 'text-danger'}">
+                    ${data.total_unrealized_pnl.toFixed(4)}
+                </h4>
+            </div></div></div>
+        `;
+    }
+
+    function renderPositionsTable(positions) {
+        const tbody = document.getElementById('positions-tbody');
+        if (!positions || positions.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted">Нет открытых позиций</td></tr>';
+            return;
+        }
+        tbody.innerHTML = positions.map(p => `
+            <tr>
+                <td><strong>${p.symbol || p.instrument_name}</strong></td>
+                <td class="${(p.side || '').toLowerCase() === 'buy' ? 'text-success' : 'text-danger'}">
+                    ${p.side || '-'}
+                </td>
+                <td>${p.size || p.qty || '-'}</td>
+                <td>${p.avg_entry_price || p.average_price || '-'}</td>
+                <td>${p.mark_price || '-'}</td>
+                <td class="${(parseFloat(p.unrealised_pnl || p.unrealized_pnl || 0) >= 0) ? 'text-success' : 'text-danger'}">
+                    ${p.unrealised_pnl || p.unrealized_pnl || '-'}
+                </td>
+                <td>${p.delta || '-'}</td>
+                <td>${p.gamma || '-'}</td>
+                <td>${p.theta || '-'}</td>
+                <td>${p.vega || '-'}</td>
+            </tr>
+        `).join('');
+    }
+
+    function refreshPositions() {
+        loadPositions(currentExchange);
+    }
+
+    // Автозагрузка
+    document.addEventListener('DOMContentLoaded', () => {
+        loadPositions('bybit');
+    });
+</script>
+{% endblock %}

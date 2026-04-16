@@ -1,0 +1,168 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-graph-up"></i> Рыночные данные</h4>
+
+<div class="btn-group mb-4" role="group">
+    <button type="button" class="btn btn-outline-primary active" onclick="currentExchange='bybit'; setActive(this); loadInstruments()">Bybit</button>
+    <button type="button" class="btn btn-outline-primary" onclick="currentExchange='deribit'; setActive(this); loadInstruments()">Deribit</button>
+</div>
+
+<div class="row g-4">
+    <!-- Поиск инструмента -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-search"></i> Инструменты</div>
+            <div class="card-body">
+                <input type="text" class="form-control mb-2" id="instrument-search" placeholder="Поиск...">
+                <div id="instruments-list" class="list-group" style="max-height: 400px; overflow-y: auto;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Стакан -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-book"></i> Стакан</div>
+            <div class="card-body">
+                <div id="orderbook-display">
+                    <p class="text-muted text-center">Выберите инструмент</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Тикеры -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-tag"></i> Тикеры</div>
+            <div class="card-body">
+                <div id="ticker-display">
+                    <p class="text-muted text-center">Выберите инструмент</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Информация -->
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-info-circle"></i> Информация</div>
+            <div class="card-body">
+                <div id="instrument-info">
+                    <p class="text-muted text-center">Выберите инструмент</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentExchange = 'bybit';
+    let currentSymbol = '';
+
+    function setActive(btn) {
+        document.querySelectorAll('.btn-group .btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    async function loadInstruments() {
+        const res = await fetch(`/api/market/${currentExchange}/instruments?base_coin=BTC`);
+        const data = await res.json();
+        const list = document.getElementById('instruments-list');
+
+        if (!data.success || !data.data.instruments) {
+            list.innerHTML = '<p class="text-muted">Ошибка загрузки</p>';
+            return;
+        }
+
+        const instruments = data.data.instruments.slice(0, 50);
+        list.innerHTML = instruments.map(inst => `
+            <button class="list-group-item list-group-item-action"
+                    onclick="selectInstrument('${inst.symbol}')">
+                ${inst.symbol}
+                <small class="text-muted">${inst.options_type || inst.option_type || ''}</small>
+            </button>
+        `).join('');
+    }
+
+    async function selectInstrument(symbol) {
+        currentSymbol = symbol;
+        loadOrderbook();
+        loadTicker();
+        loadInstrumentInfo();
+    }
+
+    async function loadOrderbook() {
+        const param = currentExchange === 'bybit' ? 'symbol' : 'instrument_name';
+        const res = await fetch(`/api/market/${currentExchange}/orderbook/${currentSymbol}?depth=10`);
+        const data = await res.json();
+        const div = document.getElementById('orderbook-display');
+
+        if (!data.success) {
+            div.innerHTML = '<p class="text-danger">Ошибка</p>';
+            return;
+        }
+
+        const ob = data.data;
+        const bids = (ob.bids || []).slice(0, 5);
+        const asks = (ob.asks || []).slice(0, 5).reverse();
+
+        div.innerHTML = `
+            <div class="mb-2"><strong>${currentSymbol}</strong></div>
+            <table class="table table-sm table-dark">
+                <thead><tr><th>Price</th><th>Qty</th></tr></thead>
+                <tbody>
+                    ${asks.map(a => `<tr class="text-danger"><td>${a[0]}</td><td>${a[1]}</td></tr>`).join('')}
+                    ${bids.map(b => `<tr class="text-success"><td>${b[0]}</td><td>${b[1]}</td></tr>`).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    async function loadTicker() {
+        const div = document.getElementById('ticker-display');
+        div.innerHTML = '<div class="spinner-border spinner-border-sm"></div>';
+
+        const res = await fetch(`/api/market/${currentExchange}/tickers/BTC`);
+        const data = await res.json();
+
+        if (!data.success) {
+            div.innerHTML = '<p class="text-danger">Ошибка</p>';
+            return;
+        }
+
+        const ticker = (data.data.tickers || []).find(t => t.symbol === currentSymbol || t.instrument_name === currentSymbol);
+        if (!ticker) {
+            div.innerHTML = '<p class="text-muted">Нет данных</p>';
+            return;
+        }
+
+        div.innerHTML = `
+            <div class="mb-2"><strong>${currentSymbol}</strong></div>
+            <div>Mark: <strong>${ticker.mark_price || '-'}</strong></div>
+            <div>IV: <strong>${ticker.mark_iv || '-'}%</strong></div>
+            <div>Bid: ${ticker.bid_price || ticker.best_bid_price || '-'}</div>
+            <div>Ask: ${ticker.ask_price || ticker.best_ask_price || '-'}</div>
+            <div>Delta: ${ticker.delta || '-'}</div>
+            <div>Vega: ${ticker.vega || '-'}</div>
+        `;
+    }
+
+    async function loadInstrumentInfo() {
+        document.getElementById('instrument-info').innerHTML = `<p>Выбран: <strong>${currentSymbol}</strong></p>`;
+    }
+
+    document.getElementById('instrument-search').addEventListener('input', (e) => {
+        const query = e.target.value.toLowerCase();
+        document.querySelectorAll('#instruments-list .list-group-item').forEach(item => {
+            item.style.display = item.textContent.toLowerCase().includes(query) ? '' : 'none';
+        });
+    });
+
+    // Автозагрузка
+    document.addEventListener('DOMContentLoaded', loadInstruments);
+</script>
+{% endblock %}

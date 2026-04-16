@@ -1,0 +1,317 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0">
+        <i class="bi bi-diagram-3"></i>
+        {% if mode == 'create' %}Новая стратегия{% else %}Редактирование стратегии{% endif %}
+    </h4>
+    <div class="d-flex gap-2">
+        {% if mode == 'edit' %}
+        <a href="/strategies/{{ strategy_id }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Назад
+        </a>
+        {% else %}
+        <a href="/strategies" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Назад
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<form id="strategy-form" class="row g-3">
+    <!-- Основная информация -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-info-circle"></i> Основная информация</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Название стратегии *</label>
+                        <input type="text" class="form-control" id="strategy-name" required maxlength="100" placeholder="Введите название">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Статус</label>
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" id="strategy-active" checked>
+                            <label class="form-check-label" for="strategy-active">Активна</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Описание</label>
+                        <textarea class="form-control" id="strategy-desc" rows="2" maxlength="500" placeholder="Краткое описание стратегии (необязательно)"></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Актив -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-currency-bitcoin"></i> Актив</div>
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="btn-group" role="group" id="asset-group">
+                        <input type="radio" class="btn-check" name="asset" id="asset-btc" value="BTC" checked>
+                        <label class="btn btn-outline-primary btn-sm" for="asset-btc">BTC</label>
+
+                        <input type="radio" class="btn-check" name="asset" id="asset-eth" value="ETH">
+                        <label class="btn btn-outline-primary btn-sm" for="asset-eth">ETH</label>
+
+                        <input type="radio" class="btn-check" name="asset" id="asset-other" value="Other">
+                        <label class="btn btn-outline-primary btn-sm" for="asset-other">Other</label>
+                    </div>
+                    <input type="text" class="form-control" id="custom-asset" style="max-width: 150px; display: none;" placeholder="Тикер" maxlength="20">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Объём -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-stack"></i> Объём</div>
+            <div class="card-body">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Количество</label>
+                        <input type="number" class="form-control" id="volume" step="any" min="0" value="0" placeholder="0.00">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Валюта</label>
+                        <select class="form-select" id="volume-currency">
+                            <option value="USDT">USDT</option>
+                            <option value="asset">Актив</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="volume-split">
+                            <label class="form-check-label" for="volume-split">
+                                Разделить объём на контракты
+                            </label>
+                        </div>
+                        <div id="split-count-group" style="display: none;" class="mt-2">
+                            <label class="form-label">Количество контрактов</label>
+                            <input type="number" class="form-control" id="split-count" min="1" value="1" style="max-width: 120px;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Контракты -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-file-earmark-text"></i> Контракты</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- Дневной -->
+                    <div class="col-md-4">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="contract-daily">
+                            <label class="form-check-label" for="contract-daily">Дневной</label>
+                        </div>
+                        <div id="daily-positions" class="ms-4" style="display: none;">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="daily-nearest" value="nearest">
+                                <label class="form-check-label" for="daily-nearest">Ближайший</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="daily-middle" value="middle">
+                                <label class="form-check-label" for="daily-middle">Мидл</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="daily-farthest" value="farthest">
+                                <label class="form-check-label" for="daily-farthest">Дальний</label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Неделя -->
+                    <div class="col-md-4">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="contract-weekly">
+                            <label class="form-check-label" for="contract-weekly">Неделя</label>
+                        </div>
+                        <div id="weekly-positions" class="ms-4" style="display: none;">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="weekly-nearest" value="nearest">
+                                <label class="form-check-label" for="weekly-nearest">Ближайший</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="weekly-middle" value="middle">
+                                <label class="form-check-label" for="weekly-middle">Мидл</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="weekly-farthest" value="farthest">
+                                <label class="form-check-label" for="weekly-farthest">Дальний</label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Месяц -->
+                    <div class="col-md-4">
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="contract-monthly">
+                            <label class="form-check-label" for="contract-monthly">Месяц</label>
+                        </div>
+                        <div id="monthly-positions" class="ms-4" style="display: none;">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="monthly-nearest" value="nearest">
+                                <label class="form-check-label" for="monthly-nearest">Ближайший</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="monthly-middle" value="middle">
+                                <label class="form-check-label" for="monthly-middle">Мидл</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="monthly-farthest" value="farthest">
+                                <label class="form-check-label" for="monthly-farthest">Дальний</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Тип входа -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-box-arrow-in-right"></i> Тип входа</div>
+            <div class="card-body">
+                <div class="btn-group" role="group" id="entry-type-group">
+                    <input type="radio" class="btn-check" name="entry-type" id="entry-call" value="Call" checked>
+                    <label class="btn btn-outline-success btn-sm" for="entry-call">Call</label>
+
+                    <input type="radio" class="btn-check" name="entry-type" id="entry-put" value="Put">
+                    <label class="btn btn-outline-danger btn-sm" for="entry-put">Put</label>
+
+                    <input type="radio" class="btn-check" name="entry-type" id="entry-call-put" value="Call+Put">
+                    <label class="btn btn-outline-warning btn-sm" for="entry-call-put">Call+Put</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Webhook входа -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="entry-webhook-enabled">
+                    <label class="form-check-label"><i class="bi bi-webhook"></i> Вход по WebHook</label>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="entry-webhook-fields" style="display: none;">
+                    <label class="form-label">Имя стратегии для Webhook</label>
+                    <input type="text" class="form-control" id="entry-webhook-name" placeholder="strategy_name" maxlength="100">
+                    <small class="text-muted">Это имя будет использоваться для идентификации стратегии в TradingView алертах</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- StopLoss -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="sl-enabled">
+                    <label class="form-check-label"><i class="bi bi-shield-x"></i> StopLoss</label>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="sl-fields" style="display: none;">
+                    <div class="btn-group mb-3" role="group" id="sl-trigger-group">
+                        <input type="radio" class="btn-check" name="sl-trigger" id="sl-trigger-conditions" value="conditions" checked>
+                        <label class="btn btn-outline-primary btn-sm" for="sl-trigger-conditions">По условиям</label>
+
+                        <input type="radio" class="btn-check" name="sl-trigger" id="sl-trigger-webhook" value="webhook">
+                        <label class="btn btn-outline-primary btn-sm" for="sl-trigger-webhook">WebHook</label>
+                    </div>
+
+                    <div id="sl-conditions-fields">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Цена (USDT)</label>
+                                <input type="number" class="form-control" id="sl-price" step="any" placeholder="0.00">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Падение от входа (%)</label>
+                                <input type="number" class="form-control" id="sl-percent" step="any" min="0" placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="sl-webhook-fields" style="display: none;">
+                        <label class="form-label">Имя Webhook стратегии</label>
+                        <input type="text" class="form-control" id="sl-webhook-name" placeholder="strategy_name" maxlength="100">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TakeProfit -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="tp-enabled">
+                    <label class="form-check-label"><i class="bi bi-graph-up-arrow"></i> TakeProfit</label>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="tp-fields" style="display: none;">
+                    <div class="btn-group mb-3" role="group" id="tp-trigger-group">
+                        <input type="radio" class="btn-check" name="tp-trigger" id="tp-trigger-conditions" value="conditions" checked>
+                        <label class="btn btn-outline-primary btn-sm" for="tp-trigger-conditions">По условиям</label>
+
+                        <input type="radio" class="btn-check" name="tp-trigger" id="tp-trigger-webhook" value="webhook">
+                        <label class="btn btn-outline-primary btn-sm" for="tp-trigger-webhook">WebHook</label>
+                    </div>
+
+                    <div id="tp-conditions-fields">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Цена (USDT)</label>
+                                <input type="number" class="form-control" id="tp-price" step="any" placeholder="0.00">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Рост от входа (%)</label>
+                                <input type="number" class="form-control" id="tp-percent" step="any" min="0" placeholder="0">
+                            </div>
+                        </div>
+                    </div>
+                    <div id="tp-webhook-fields" style="display: none;">
+                        <label class="form-label">Имя Webhook стратегии</label>
+                        <input type="text" class="form-control" id="tp-webhook-name" placeholder="strategy_name" maxlength="100">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Кнопки -->
+    <div class="col-12">
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary" id="save-btn">
+                <i class="bi bi-check-lg"></i>
+                {% if mode == 'create' %}Создать{% else %}Сохранить{% endif %}
+            </button>
+            <a href="/strategies" class="btn btn-outline-secondary">Отмена</a>
+        </div>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/strategies.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        initStrategyForm('{{ mode }}', '{{ strategy_id if mode == "edit" else "" }}');
+    });
+</script>
+{% endblock %}

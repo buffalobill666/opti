@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-diagram-3"></i> Обзор стратегии</h4>
+    <div class="d-flex gap-2">
+        <a href="/strategies" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Назад к списку
+        </a>
+        <a href="/strategies/{{ strategy_id }}/edit" class="btn btn-outline-primary btn-sm" id="edit-btn" style="display: none;">
+            <i class="bi bi-pencil"></i> Редактировать
+        </a>
+    </div>
+</div>
+
+<div id="strategy-detail">
+    <div class="text-muted text-center py-5">
+        <div class="spinner-border" role="status"></div>
+        <p class="mt-2">Загрузка стратегии...</p>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения удаления -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content" style="background-color: var(--bg-secondary); color: var(--text-primary);">
+            <div class="modal-header" style="border-bottom-color: var(--border-color);">
+                <h5 class="modal-title">Удалить стратегию</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Вы уверены, что хотите удалить стратегию <strong id="delete-strategy-name"></strong>?</p>
+                <p class="text-muted small">Это действие нельзя отменить.</p>
+            </div>
+            <div class="modal-footer" style="border-top-color: var(--border-color);">
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="confirm-delete-btn">Удалить</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/strategies.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        loadStrategyDetail('{{ strategy_id }}');
+    });
+</script>
+{% endblock %}

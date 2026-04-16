@@ -1,0 +1,19 @@
+{# Макрос кликабельных бейджей сети — единый для ВСЕХ страниц #}
+{# Читает bybit_network и deribit_network из контекста (устанавливается в render_page) #}
+
+{% macro network_badges() %}
+<div class="d-flex align-items-center gap-2">
+    {% set bybit_color = 'bg-warning text-dark' if bybit_network == 'demo' else ('bg-info text-white' if bybit_network == 'testnet' else 'bg-success text-white') %}
+    {% set deribit_color = 'bg-info text-white' if deribit_network == 'testnet' else 'bg-success text-white' %}
+    <span class="network-badge clickable {{ bybit_color }}"
+          onclick="toggleNetwork('bybit')"
+          title="Нажмите для переключения сети">
+        Bybit: <span id="bybit-network">{{ bybit_network }}</span>
+    </span>
+    <span class="network-badge clickable {{ deribit_color }}"
+          onclick="toggleNetwork('deribit')"
+          title="Нажмите для переключения сети">
+        Deribit: <span id="deribit-network">{{ deribit_network }}</span>
+    </span>
+</div>
+{% endmacro %}

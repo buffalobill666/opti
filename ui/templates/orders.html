@@ -1,0 +1,238 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-list-check"></i> Ордера</h4>
+
+<!-- Переключатель биржи -->
+<div class="btn-group mb-4" role="group">
+    <button type="button" class="btn btn-outline-primary active" id="btn-bybit" onclick="setExchange('bybit')">Bybit</button>
+    <button type="button" class="btn btn-outline-primary" id="btn-deribit" onclick="setExchange('deribit')">Deribit</button>
+</div>
+
+<div class="row g-4">
+    <!-- Форма создания ордера -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header"><i class="bi bi-plus-circle"></i> Новый ордер</div>
+            <div class="card-body">
+                <form id="order-form">
+                    <!-- Актив -->
+                    <div class="mb-3">
+                        <label class="form-label">Актив</label>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="btn-group" role="group" id="asset-group">
+                                <input type="radio" class="btn-check" name="asset" id="asset-btc" value="BTC" checked>
+                                <label class="btn btn-outline-primary btn-sm" for="asset-btc">BTC</label>
+
+                                <input type="radio" class="btn-check" name="asset" id="asset-eth" value="ETH">
+                                <label class="btn btn-outline-primary btn-sm" for="asset-eth">ETH</label>
+
+                                <input type="radio" class="btn-check" name="asset" id="asset-other" value="">
+                                <label class="btn btn-outline-primary btn-sm" for="asset-other">Other</label>
+                            </div>
+                            <input type="text" class="form-control form-control-sm" id="custom-asset" style="max-width: 100px; display: none;" placeholder="Тикер" maxlength="10">
+                        </div>
+                    </div>
+
+                    <!-- Период и позиция -->
+                    <div class="mb-3">
+                        <label class="form-label">Период</label>
+                        <div class="d-flex gap-2 mb-2">
+                            <div class="btn-group flex-fill" role="group" id="period-group">
+                                <input type="radio" class="btn-check" name="period" id="period-daily" value="daily">
+                                <label class="btn btn-outline-secondary btn-sm flex-fill" for="period-daily">Дневной</label>
+
+                                <input type="radio" class="btn-check" name="period" id="period-weekly" value="weekly" checked>
+                                <label class="btn btn-outline-secondary btn-sm flex-fill" for="period-weekly">Неделя</label>
+
+                                <input type="radio" class="btn-check" name="period" id="period-monthly" value="monthly">
+                                <label class="btn btn-outline-secondary btn-sm flex-fill" for="period-monthly">Месяц</label>
+                            </div>
+                        </div>
+                        <label class="form-label">Позиция</label>
+                        <div class="btn-group flex-fill" role="group" id="position-group">
+                            <input type="radio" class="btn-check" name="position" id="pos-nearest" value="nearest" checked>
+                            <label class="btn btn-outline-secondary btn-sm flex-fill" for="pos-nearest">Ближайший</label>
+
+                            <input type="radio" class="btn-check" name="position" id="pos-middle" value="middle">
+                            <label class="btn btn-outline-secondary btn-sm flex-fill" for="pos-middle">Мидл</label>
+
+                            <input type="radio" class="btn-check" name="position" id="pos-farthest" value="farthest">
+                            <label class="btn btn-outline-secondary btn-sm flex-fill" for="pos-farthest">Дальний</label>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-primary w-100 mt-2" onclick="loadInstruments()">
+                            <i class="bi bi-search"></i> Найти инструменты
+                        </button>
+                    </div>
+
+                    <!-- Инструмент (выпадающий список) -->
+                    <div class="mb-3">
+                        <label class="form-label">Инструмент</label>
+                        <select class="form-select" id="order-symbol" required>
+                            <option value="">— Сначала найдите инструменты —</option>
+                        </select>
+                        <div id="instruments-loading" class="text-muted small mt-1" style="display: none;">
+                            <span class="spinner-border spinner-border-sm"></span> Загрузка...
+                        </div>
+                        <div id="instruments-count" class="text-muted small mt-1" style="display: none;"></div>
+                    </div>
+
+                    <!-- Option Type (Call/Put) -->
+                    <div class="mb-3">
+                        <label class="form-label">Side (Option)</label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="option-side" id="opt-call" value="Call" checked>
+                            <label class="btn btn-outline-success btn-sm flex-fill" for="opt-call">Call</label>
+
+                            <input type="radio" class="btn-check" name="option-side" id="opt-put" value="Put">
+                            <label class="btn btn-outline-danger btn-sm flex-fill" for="opt-put">Put</label>
+                        </div>
+                    </div>
+
+                    <!-- Trade Side (Buy/Sell) -->
+                    <div class="mb-3">
+                        <label class="form-label">Действие</label>
+                        <select class="form-select" id="order-side">
+                            <option value="Buy">Buy (Покупка)</option>
+                            <option value="Sell">Sell (Продажа)</option>
+                        </select>
+                    </div>
+
+                    <!-- Тип ордера -->
+                    <div class="mb-3">
+                        <label class="form-label">Тип ордера</label>
+                        <select class="form-select" id="order-type">
+                            <option value="Limit">Limit</option>
+                            <option value="Market">Market</option>
+                        </select>
+                    </div>
+
+                    <!-- Количество -->
+                    <div class="mb-3">
+                        <label class="form-label">Количество</label>
+                        <input type="number" class="form-control" id="order-qty" step="any" min="0" value="1" placeholder="1" required>
+                    </div>
+
+                    <!-- Цена -->
+                    <div class="mb-3">
+                        <label class="form-label">Цена</label>
+                        <div class="input-group">
+                            <input type="number" class="form-control" id="order-price" step="any" min="0" placeholder="1500">
+                            <select class="form-select" id="price-currency" style="max-width: 100px;">
+                                <option value="USDT">USDT</option>
+                                <option value="asset">Актив</option>
+                            </select>
+                        </div>
+                        <small class="text-muted" id="price-hint">Цена в USDT</small>
+                    </div>
+
+                    <!-- Time in Force -->
+                    <div class="mb-3">
+                        <label class="form-label">Time in Force</label>
+                        <select class="form-select" id="order-tif">
+                            <option value="GTC">GTC (Good Till Cancel)</option>
+                            <option value="IOC">IOC (Immediate Or Cancel)</option>
+                            <option value="FOK">FOK (Fill Or Kill)</option>
+                            <option value="PostOnly">PostOnly</option>
+                        </select>
+                    </div>
+
+                    <!-- Расширенные параметры -->
+                    <div class="accordion mb-3" id="order-advanced-acc">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" data-bs-target="#order-advanced">
+                                    Расширенные параметры
+                                </button>
+                            </h2>
+                            <div id="order-advanced" class="accordion-collapse collapse" data-bs-parent="#order-advanced-acc">
+                                <div class="accordion-body">
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="order-reduce-only">
+                                        <label class="form-check-label" for="order-reduce-only">Reduce Only (закрытие/уменьшение позиции)</label>
+                                    </div>
+
+                                    <div class="mb-2">
+                                        <label class="form-label">Order Link ID (Bybit, опционально)</label>
+                                        <input type="text" class="form-control form-control-sm" id="order-link-id" maxlength="36" placeholder="or_custom_001">
+                                    </div>
+
+                                    <hr class="my-3">
+                                    <div class="small text-muted mb-2">Bybit TP/SL (опционально)</div>
+                                    <div class="row g-2">
+                                        <div class="col-6">
+                                            <label class="form-label">Take Profit</label>
+                                            <input type="number" class="form-control form-control-sm" id="order-tp" step="any" min="0" placeholder="0">
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label">Stop Loss</label>
+                                            <input type="number" class="form-control form-control-sm" id="order-sl" step="any" min="0" placeholder="0">
+                                        </div>
+                                    </div>
+
+                                    <hr class="my-3">
+                                    <div class="small text-muted mb-2">Deribit (опционально)</div>
+                                    <div class="form-check form-switch mb-2">
+                                        <input class="form-check-input" type="checkbox" id="order-post-only" checked>
+                                        <label class="form-check-label" for="order-post-only">Post Only</label>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label">Label</label>
+                                        <input type="text" class="form-control form-control-sm" id="order-label" placeholder="my_label">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-send"></i> Разместить ордер
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Таблица ордеров -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-table"></i> Активные ордера</span>
+                <button class="btn btn-sm btn-outline-secondary" onclick="loadOrders()">
+                    <i class="bi bi-arrow-clockwise"></i> Обновить
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover table-sm" id="orders-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Symbol</th>
+                                <th>Side</th>
+                                <th>Type</th>
+                                <th>Qty</th>
+                                <th>Price</th>
+                                <th>Status</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orders-tbody">
+                            <tr><td colspan="8" class="text-center text-muted">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/orders.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        initOrdersPage();
+    });
+</script>
+{% endblock %}

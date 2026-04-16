@@ -1,0 +1,90 @@
+{# Общий layout для всех страниц GUI #}
+{# Параметры: page_title, active_page, bybit_network, deribit_network #}
+{% from "macros.html" import network_badges with context %}
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptionsRunner — {{ page_title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Навигация — ОБЩАЯ ДЛЯ ВСЕХ СТРАНИЦ -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/dashboard">⚡ OptionsRunner</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'dashboard' %}active{% endif %}" href="/dashboard">
+                            <i class="bi bi-speedometer2"></i> Панель
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'api-keys' %}active{% endif %}" href="/api-keys">
+                            <i class="bi bi-key"></i> API Ключи
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'balances' %}active{% endif %}" href="/balances">
+                            <i class="bi bi-wallet2"></i> Балансы
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'positions' %}active{% endif %}" href="/positions">
+                            <i class="bi bi-bar-chart"></i> Позиции
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'orders' %}active{% endif %}" href="/orders">
+                            <i class="bi bi-list-check"></i> Ордера
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'strategies' %}active{% endif %}" href="/strategies">
+                            <i class="bi bi-diagram-3"></i> Стратегии
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'market-data' %}active{% endif %}" href="/market-data">
+                            <i class="bi bi-graph-up"></i> Рынок
+                        </a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center gap-2">
+                    {{ network_badges() }}
+                    <a href="/logout" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-box-arrow-right"></i> Выход
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Основной контент — вставляется из дочерних шаблонов -->
+    <div class="container-fluid mt-3">
+        {% block content %}{% endblock %}
+    </div>
+
+    <!-- Toast уведомления -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto" id="toast-title">Уведомление</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toast-body"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/main.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

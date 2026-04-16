@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OptionsRunner — API Ключи</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="/static/css/style.css" rel="stylesheet">
+</head>
+<body>
+    {% from "macros.html" import network_badges with context %}
+    <!-- Навигация -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/dashboard">⚡ OptionsRunner</a>
+            <div class="d-flex align-items-center gap-2">
+                {{ network_badges() }}
+                <a href="/dashboard" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left"></i> Назад</a>
+                <a href="/logout" class="btn btn-outline-secondary btn-sm"><i class="bi bi-box-arrow-right"></i> Выход</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-3 px-4">
+        <h4 class="mb-3"><i class="bi bi-key"></i> Управление API ключами</h4>
+
+        <div class="row g-3">
+            <!-- ═══════════ BYBIT ═══════════ -->
+            <div class="col-md-6">
+                <div class="card exchange-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-currency-bitcoin"></i> Bybit</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- Флаг Use Main As Test -->
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="bybit-use-main-as-test"
+                                       onchange="toggleUseMainAsTest('bybit', this.checked)">
+                                <label class="form-check-label" for="bybit-use-main-as-test" style="font-size:0.78rem; color:var(--text-muted);">
+                                    Main as Test
+                                </label>
+                            </div>
+                            <!-- Свитч сети: Demo ↔ Mainnet -->
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="bybit-testnet-switch"
+                                       onchange="switchNetwork('bybit', this.checked)"
+                                       {% if bybit_network == 'demo' %}checked{% endif %}>
+                                <label class="form-check-label" for="bybit-testnet-switch" style="font-size:0.78rem;">
+                                    <span id="bybit-switch-label">{{ bybit_network | upper }}</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+
+                        <!-- .env ключи (mainnet) -->
+                        <div class="settings-section">
+                            <div class="settings-section-title">
+                                <i class="bi bi-file-earmark"></i> Ключи из .env (Mainnet)
+                            </div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-7">
+                                    <label class="form-label">API Key</label>
+                                    <div class="env-key-display" id="bybit-env-api-key">—</div>
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label">API Secret</label>
+                                    <div class="env-key-display" id="bybit-env-api-secret">—</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- .env Demo ключи -->
+                        <div class="settings-section">
+                            <div class="settings-section-title">
+                                <i class="bi bi-file-earmark"></i> Ключи из .env (Demo)
+                            </div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-7">
+                                    <label class="form-label">Demo API Key</label>
+                                    <div class="env-key-display" id="bybit-env-demo-api-key">—</div>
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label">Demo API Secret</label>
+                                    <div class="env-key-display" id="bybit-env-demo-api-secret">—</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Сохранённые ключи — Mainnet -->
+                        <div class="settings-section">
+                            <div class="settings-section-title d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-hdd-stack"></i> Сохранённые — Mainnet</span>
+                                <button class="btn btn-outline-danger btn-sm" style="font-size:0.72rem; padding:0.15rem 0.5rem;"
+                                        onclick="deleteSavedKeys('bybit', false)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-7">
+                                    <label class="form-label">API Key</label>
+                                    <input type="text" class="form-control form-control-sm" id="bybit-mainnet-api-key"
+                                           placeholder="Введите API ключ">
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label">API Secret</label>
+                                    <input type="password" class="form-control form-control-sm" id="bybit-mainnet-api-secret"
+                                           placeholder="Введите секрет">
+                                </div>
+                            </div>
+                            <div class="mt-2 d-flex gap-2">
+                                <button class="btn btn-primary btn-sm" onclick="saveKeys('bybit', false, false)">
+                                    <i class="bi bi-save"></i> Сохранить
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="testConnection('bybit', false, false)">
+                                    <i class="bi bi-plug"></i> Тест
+                                </button>
+                            </div>
+                            <div id="bybit-mainnet-status" class="mt-2"></div>
+                        </div>
+
+                        <!-- Bybit НЕ использует testnet — только Demo -->
+                        <div class="settings-section" style="opacity:0.5;">
+                            <div class="settings-section-title">
+                                <i class="bi bi-info-circle"></i> Testnet
+                            </div>
+                            <small class="text-muted">Bybit testnet отключён. Используйте Demo режим.</small>
+                        </div>
+
+                        <!-- Сохранённые ключи — Demo -->
+                        <div class="settings-section">
+                            <div class="settings-section-title d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-hdd-stack"></i> Сохранённые — Demo</span>
+                                <button class="btn btn-outline-danger btn-sm" style="font-size:0.72rem; padding:0.15rem 0.5rem;"
+                                        onclick="deleteSavedKeys('bybit', null, true)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-7">
+                                    <label class="form-label">Demo API Key</label>
+                                    <input type="text" class="form-control form-control-sm" id="bybit-demo-api-key"
+                                           placeholder="Введите Demo API ключ">
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label">Demo API Secret</label>
+                                    <input type="password" class="form-control form-control-sm" id="bybit-demo-api-secret"
+                                           placeholder="Введите Demo секрет">
+                                </div>
+                            </div>
+                            <div class="mt-2 d-flex gap-2">
+                                <button class="btn btn-primary btn-sm" onclick="saveKeys('bybit', false, true)">
+                                    <i class="bi bi-save"></i> Сохранить
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="testConnection('bybit', false, true)">
+                                    <i class="bi bi-plug"></i> Тест
+                                </button>
+                            </div>
+                            <div id="bybit-demo-status" class="mt-2"></div>
+                        </div>
+
+                        <!-- Текущий URL -->
+                        <div class="mt-3">
+                            <small class="text-muted">Текущий URL: <code id="bybit-url">https://api.bybit.com</code></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══════════ DERIBIT ═══════════ -->
+            <div class="col-md-6">
+                <div class="card exchange-card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-graph-up-arrow"></i> Deribit</span>
+                        <div class="d-flex align-items-center gap-2">
+                            <!-- Флаг Use Main As Test -->
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="deribit-use-main-as-test"
+                                       onchange="toggleUseMainAsTest('deribit', this.checked)">
+                                <label class="form-check-label" for="deribit-use-main-as-test" style="font-size:0.78rem; color:var(--text-muted);">
+                                    Main as Test
+                                </label>
+                            </div>
+                            <!-- Свитч сети -->
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="deribit-testnet-switch"
+                                       onchange="switchNetwork('deribit', this.checked)"
+                                       {% if deribit_network == 'testnet' %}checked{% endif %}>
+                                <label class="form-check-label" for="deribit-testnet-switch" style="font-size:0.78rem;">
+                                    <span id="deribit-switch-label">{{ deribit_network | upper }}</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+
+                        <!-- .env ключи (mainnet) -->
+                        <div class="settings-section">
+                            <div class="settings-section-title">
+                                <i class="bi bi-file-earmark"></i> Ключи из .env (Mainnet)
+                            </div>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-7">
+                                    <label class="form-label">Client ID</label>
+                                    <div class="env-key-display" id="deribit-env-api-key">—</div>
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label">Client Secret</label>
+                                    <div class="env-key-display" id="deribit-env-api-secret">—</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Deribit не имеет Demo — только testnet -->
+                        <div class="settings-section" style="opacity:0.6;">
+                            <div class="settings-section-title">
+                                <i class="bi bi-info-circle"></i> Demo режим
+                            </div>
+                            <small class="text-muted">Deribit не поддерживает Demo режим. Используйте Testnet.</small>
+                        </div>
+
+                        <!-- Сохранённые ключи — Mainnet -->
+                        <div class="settings-section">
+                            <div class="settings-section-title d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-hdd-stack"></i> Сохранённые — Mainnet</span>
+                                <button class="btn btn-outline-danger btn-sm" style="font-size:0.72rem; padding:0.15rem 0.5rem;"
+                                        onclick="deleteSavedKeys('deribit', false)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-7">
+                                    <label class="form-label">Client ID</label>
+                                    <input type="text" class="form-control form-control-sm" id="deribit-mainnet-api-key"
+                                           placeholder="Введите Client ID">
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label">Client Secret</label>
+                                    <input type="password" class="form-control form-control-sm" id="deribit-mainnet-api-secret"
+                                           placeholder="Введите Client Secret">
+                                </div>
+                            </div>
+                            <div class="mt-2 d-flex gap-2">
+                                <button class="btn btn-primary btn-sm" onclick="saveKeys('deribit', false, false)">
+                                    <i class="bi bi-save"></i> Сохранить
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="testConnection('deribit', false, false)">
+                                    <i class="bi bi-plug"></i> Тест
+                                </button>
+                            </div>
+                            <div id="deribit-mainnet-status" class="mt-2"></div>
+                        </div>
+
+                        <!-- Сохранённые ключи — Testnet -->
+                        <div class="settings-section">
+                            <div class="settings-section-title d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-hdd-stack"></i> Сохранённые — Testnet</span>
+                                <button class="btn btn-outline-danger btn-sm" style="font-size:0.72rem; padding:0.15rem 0.5rem;"
+                                        onclick="deleteSavedKeys('deribit', true)">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-7">
+                                    <label class="form-label">Client ID</label>
+                                    <input type="text" class="form-control form-control-sm" id="deribit-testnet-api-key"
+                                           placeholder="Введите Client ID">
+                                </div>
+                                <div class="col-5">
+                                    <label class="form-label">Client Secret</label>
+                                    <input type="password" class="form-control form-control-sm" id="deribit-testnet-api-secret"
+                                           placeholder="Введите Client Secret">
+                                </div>
+                            </div>
+                            <div class="mt-2 d-flex gap-2">
+                                <button class="btn btn-primary btn-sm" onclick="saveKeys('deribit', true, false)">
+                                    <i class="bi bi-save"></i> Сохранить
+                                </button>
+                                <button class="btn btn-outline-success btn-sm" onclick="testConnection('deribit', true, false)">
+                                    <i class="bi bi-plug"></i> Тест
+                                </button>
+                            </div>
+                            <div id="deribit-testnet-status" class="mt-2"></div>
+                        </div>
+
+                        <!-- Текущий URL -->
+                        <div class="mt-3">
+                            <small class="text-muted">Текущий URL: <code id="deribit-url">https://www.deribit.com/api/v2</code></small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto" id="toast-title">Уведомление</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toast-body"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/network_switch.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadApiKeysPage();
+        });
+    </script>
+</body>
+</html>

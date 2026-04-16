@@ -1,0 +1,87 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<!-- Основной контент -->
+<div class="row g-3">
+    <!-- Балансы -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card dashboard-card">
+            <div class="card-header">
+                <i class="bi bi-wallet2"></i> Балансы
+            </div>
+            <div class="card-body">
+                <div id="balances-summary">
+                    <div class="text-muted text-center">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        <p class="mt-2">Загрузка...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Позиции -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card dashboard-card">
+            <div class="card-header">
+                <i class="bi bi-bar-chart"></i> Позиции
+            </div>
+            <div class="card-body">
+                <div id="positions-summary">
+                    <div class="text-muted text-center">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        <p class="mt-2">Загрузка...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Греки -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card dashboard-card">
+            <div class="card-header">
+                <i class="bi bi-calculator"></i> Греки портфеля
+            </div>
+            <div class="card-body">
+                <div id="greeks-summary">
+                    <div class="text-muted text-center">
+                        <div class="spinner-border spinner-border-sm" role="status"></div>
+                        <p class="mt-2">Загрузка...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Быстрые действия -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card dashboard-card">
+            <div class="card-header">
+                <i class="bi bi-lightning"></i> Быстрые действия
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="/orders" class="btn btn-primary btn-sm">
+                        <i class="bi bi-plus-circle"></i> Новый ордер
+                    </a>
+                    <a href="/market-data" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-graph-up"></i> Рыночные данные
+                    </a>
+                    <a href="/api-keys" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-gear"></i> Настройки
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        loadDashboardData();
+    });
+</script>
+{% endblock %}

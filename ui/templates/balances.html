@@ -1,0 +1,128 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h4 class="mb-3"><i class="bi bi-wallet2"></i> Балансы</h4>
+
+<!-- Выбор биржи -->
+<div class="btn-group mb-4" role="group">
+    <button type="button" class="btn btn-outline-primary active" onclick="loadBalances('bybit')">Bybit</button>
+    <button type="button" class="btn btn-outline-primary" onclick="loadBalances('deribit')">Deribit</button>
+</div>
+
+<!-- Сводка -->
+<div class="row g-4 mb-4" id="balances-summary"></div>
+
+<!-- Таблица балансов -->
+<div class="card">
+    <div class="card-header">
+        <i class="bi bi-table"></i> Детализация по валютам
+        <button class="btn btn-sm btn-outline-light ms-3" onclick="refreshBalances()">
+            <i class="bi bi-arrow-clockwise"></i> Обновить
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover" id="balances-table">
+                <thead>
+                    <tr>
+                        <th>Валюта</th>
+                        <th>Balance</th>
+                        <th>Equity</th>
+                        <th>Available</th>
+                        <th>Margin</th>
+                        <th>P&L</th>
+                    </tr>
+                </thead>
+                <tbody id="balances-tbody">
+                    <tr><td colspan="6" class="text-center text-muted">Выберите биржу</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentExchange = 'bybit';
+
+    function loadBalances(exchange) {
+        currentExchange = exchange;
+        // Обновляем активную кнопку
+        document.querySelectorAll('.btn-group .btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        fetch(`/api/balances/${exchange}/summary`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    renderBalancesSummary(data.data);
+                    renderBalancesTable(data.data.coins);
+                } else {
+                    showToast('Ошибка', data.error, 'danger');
+                }
+            })
+            .catch(err => showToast('Ошибка', err.message, 'danger'));
+    }
+
+    function renderBalancesSummary(data) {
+        const equity = data.total_equity || data.total_equity_usd || 0;
+        const available = data.total_available || 0;
+        document.getElementById('balances-summary').innerHTML = `
+            <div class="col-md-4">
+                <div class="card stat-card">
+                    <div class="card-body text-center">
+                        <h5 class="text-muted">Equity</h5>
+                        <h3>${equity.toFixed(4)}</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card">
+                    <div class="card-body text-center">
+                        <h5 class="text-muted">Available</h5>
+                        <h3>${available.toFixed(4)}</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card">
+                    <div class="card-body text-center">
+                        <h5 class="text-muted">Exchange</h5>
+                        <h3 class="text-uppercase">${data.exchange}</h3>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    function renderBalancesTable(coins) {
+        const tbody = document.getElementById('balances-tbody');
+        if (!coins || coins.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Нет данных</td></tr>';
+            return;
+        }
+        tbody.innerHTML = coins.map(c => `
+            <tr>
+                <td><strong>${c.coin || c.currency || '-'}</strong></td>
+                <td>${(c.wallet_balance || c.balance || 0).toFixed(6)}</td>
+                <td>${(c.equity || 0).toFixed(6)}</td>
+                <td>${(c.available_to_withdraw || c.available_funds || 0).toFixed(6)}</td>
+                <td>${(c.initial_margin || c.margin_balance || 0).toFixed(6)}</td>
+                <td class="${(c.unrealised_pnl || c.unrealized_pnl || 0) >= 0 ? 'text-success' : 'text-danger'}">
+                    ${(c.unrealised_pnl || c.unrealized_pnl || 0).toFixed(6)}
+                </td>
+            </tr>
+        `).join('');
+    }
+
+    function refreshBalances() {
+        loadBalances(currentExchange);
+    }
+
+    // Автозагрузка
+    document.addEventListener('DOMContentLoaded', () => {
+        loadBalances('bybit');
+    });
+</script>
+{% endblock %}
