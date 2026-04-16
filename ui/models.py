@@ -117,14 +117,27 @@ class VolumeCurrency(str, Enum):
 
 
 class ContractPeriod(str, Enum):
-    """Период контракта."""
+    """Период контракта (группа)."""
     DAILY = "daily"
     WEEKLY = "weekly"
     MONTHLY = "monthly"
 
 
+class ContractPeriodType(str, Enum):
+    """Конкретный тип периода контракта (9 типов)."""
+    DAILY = "Daily"
+    BI_DAILY = "Bi-Daily"
+    TRI_DAILY = "Tri-Daily"
+    WEEKLY = "Weekly"
+    BI_WEEKLY = "Bi-Weekly"
+    TRI_WEEKLY = "Tri-Weekly"
+    MONTHLY = "Monthly"
+    BI_MONTHLY = "Bi-Monthly"
+    QUARTERLY = "Quarterly"
+
+
 class ContractPosition(str, Enum):
-    """Позиция контракта."""
+    """Позиция контракта внутри группы периодов."""
     NEAREST = "nearest"
     MIDDLE = "middle"
     FARTHEST = "farthest"

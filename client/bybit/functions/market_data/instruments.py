@@ -12,19 +12,24 @@ API: GET /v5/market/instruments-info
     symbol (str, optional): Конкретный символ (напр. "BTC-27DEC24-80000-C")
     status (str, optional): Фильтр статуса — "Trading", "PreLaunch", "Delivering", "Settled"
     limit (int): Лимит записей (макс 1000, по умолчанию 500)
+    classify (bool): Применить классификацию контрактов (по умолчанию True)
 
 Возвращает:
     dict:
-        - instruments (list[dict]): Список инструментов:
+        - instruments (list[dict]): Список инструментов с классификацией:
             - symbol (str): Символ инструмента
             - options_type (str): "Call" или "Put"
-            - status (str): Статус
+            - status (str): Статус ("Trading", "PreLaunch", "Delivering", "Closed")
             - base_coin (str): Базовая валюта
             - quote_coin (str): Валюта котировки
             - settle_coin (str): Валюта расчёта
             - launch_time (int): Время запуска (мс)
             - delivery_time (int): Время доставки (мс)
             - delivery_fee_rate (float): Ставка комиссии доставки
+            - original_duration_days (int): Оригинальная длительность контракта
+            - days_to_expiry (int): Дней до экспирации
+            - period_type (str): Тип периода (Daily, Bi-Daily, Tri-Daily, Weekly, ...)
+            - period_group (str): Группа периодов (daily, weekly, monthly)
             - price_filter (dict):
                 - min_price (float)
                 - max_price (float)
@@ -38,11 +43,12 @@ API: GET /v5/market/instruments-info
 Пример:
     result = await get_instruments(client, base_coin="BTC")
     for inst in result['instruments']:
-        print(f"{inst['symbol']} | {inst['options_type']} | Strike: {inst.get('strike')}")
+        print(f"{inst['symbol']} | {inst['period_type']} | {inst['days_to_expiry']}d | {inst['status']}")
 """
 
 from utils.logger import logger
 from utils.timer import timed_execution
+from utils.option_classifier import classify_bybit_option
 
 
 @timed_execution
@@ -52,6 +58,7 @@ async def get_instruments(
     symbol: str = None,
     status: str = None,
     limit: int = 500,
+    classify: bool = True,
 ) -> dict:
     """
     Получение списка всех доступных опционов.
@@ -62,9 +69,10 @@ async def get_instruments(
         symbol: Конкретный символ (опционально)
         status: Фильтр статуса (опционально)
         limit: Лимит записей (макс 1000)
+        classify: Применить классификацию контрактов (по умолчанию True)
 
     Returns:
-        dict с данными инструментов
+        dict с данными инструментов и классификацией
 
     Raises:
         ValueError: Если base_coin невалиден или limit > 1000
@@ -90,7 +98,7 @@ async def get_instruments(
         params["status"] = status
 
     logger.info(
-        f"Запрос инструментов: category=option, baseCoin={base_coin}"
+        f"Запрос инструментов: category=option, baseCoin={base_coin}, classify={classify}"
     )
 
     result = await client.call_public(
@@ -103,10 +111,11 @@ async def get_instruments(
         price_filter = inst.get("priceFilter", {})
         lot_filter = inst.get("lotSizeFilter", {})
 
-        instruments.append({
+        # Базовая информация
+        instrument_data = {
             "symbol": inst.get("symbol"),
             "options_type": inst.get("optionsType"),
-            "status": inst.get("status"),
+            "raw_status": inst.get("status"),
             "base_coin": inst.get("baseCoin"),
             "quote_coin": inst.get("quoteCoin"),
             "settle_coin": inst.get("settleCoin"),
@@ -123,11 +132,42 @@ async def get_instruments(
                 "min_order_qty": float(lot_filter.get("minOrderQty", 0)),
                 "qty_step": float(lot_filter.get("qtyStep", 0)),
             },
-        })
+        }
+
+        # Применяем классификацию если запрошено
+        if classify:
+            classified = classify_bybit_option(inst)
+            # Объединяем данные
+            instrument_data.update({
+                "status": classified["status"],
+                "original_duration_days": classified["original_duration_days"],
+                "days_to_expiry": classified["days_to_expiry"],
+                "period_type": classified["period_type"],
+                "period_group": classified["period_group"],
+                "is_daily_type": classified["is_daily_type"],
+                "expiry_date": classified["expiry_date"],
+                "launch_date": classified["launch_date"],
+                "strike": classified["strike"],
+            })
+        else:
+            # Без классификации - базовые поля
+            instrument_data.update({
+                "status": inst.get("status"),
+                "original_duration_days": None,
+                "days_to_expiry": None,
+                "period_type": None,
+                "period_group": None,
+                "is_daily_type": None,
+                "expiry_date": None,
+                "launch_date": None,
+                "strike": None,
+            })
+
+        instruments.append(instrument_data)
 
     logger.info(
         f"Получено инструментов: {len(instruments)} | "
-        f"baseCoin={base_coin} | nextCursor={result.get('nextPageCursor')}"
+        f"baseCoin={base_coin} | nextCursor={result.get('nextPageCursor')} | classified={classify}"
     )
 
     return {

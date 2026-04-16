@@ -832,6 +832,7 @@ class UnifiedClient:
             symbol=kwargs.get("symbol"),
             status=kwargs.get("status"),
             limit=kwargs.get("limit", 500),
+            classify=kwargs.get("classify", True),
         )
 
         return {
@@ -847,6 +848,7 @@ class UnifiedClient:
         result = await get_instruments(
             self.deribit_client,
             currency=kwargs.get("currency", "BTC"),
+            classify=kwargs.get("classify", True),
         )
 
         return {
