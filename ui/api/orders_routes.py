@@ -119,42 +119,82 @@ def _map_tif_for_deribit(tif: str) -> str:
 # ─── Вспомогательные функции для инструментов ───────────────────────
 
 def _parse_deribit_instrument(instrument: dict) -> dict:
-    """Парсинг инструмента Deribit в единый формат."""
-    name = instrument.get("instrument_name", "")
-    # Формат: BTC-27DEC24-80000-C
-    parts = name.split("-") if name else []
-
-    expiration_str = parts[1] if len(parts) > 1 else ""
-    strike_str = parts[2] if len(parts) > 2 else ""
-    option_type = parts[3] if len(parts) > 3 else ""
-
-    # Парсим дату экспирации
-    expiration = None
-    try:
-        expiration = datetime.strptime(expiration_str, "%d%b%y").replace(tzinfo=timezone.utc)
-    except (ValueError, IndexError):
-        pass
-
-    days = _days_to_expiry(expiration) if expiration else None
-    period = _classify_period(days) if days is not None else "unknown"
-
-    try:
-        strike = float(strike_str)
-    except (ValueError, TypeError):
-        strike = 0
-
+    """Парсинг инструмента Deribit в единый формат (устаревшая функция)."""
+    from utils.option_classifier import classify_deribit_option
+    
+    # Преобразуем формат Deribit в формат для классификатора
+    deribit_format = {
+        "instrument_name": instrument.get("instrument_name", ""),
+        "base_currency": instrument.get("base_currency", ""),
+        "quote_currency": instrument.get("quote_currency", ""),
+        "settlement_period": instrument.get("settlement_period", ""),
+        "option_type": instrument.get("option_type", ""),
+        "strike": instrument.get("strike"),
+        "tick_size": instrument.get("tick_size", ""),
+        "contract_size": instrument.get("contract_size", ""),
+        "expiration_timestamp": instrument.get("expiration_timestamp", 0),
+        "creation_timestamp": instrument.get("creation_timestamp", 0),
+        "instrument_id": instrument.get("instrument_id"),
+        "is_active": instrument.get("is_active", True),
+        "min_trade_amount": instrument.get("min_trade_amount", 1),
+    }
+    
+    result = classify_deribit_option(deribit_format)
+    
     return {
-        "symbol": name,
+        "symbol": result["symbol"],
         "base_coin": instrument.get("base_currency", ""),
-        "strike": strike,
-        "option_type": option_type,
-        "expiration": expiration.isoformat() if expiration else None,
-        "period": period,
-        "days_to_expiry": days,
+        "strike": result["strike"],
+        "option_type": result["optionsType"],
+        "expiration": result["expiry_date"],
+        "period": result["period_group"],
+        "period_type": result["period_type"],
+        "days_to_expiry": result["days_to_expiry"],
+        "original_duration_days": result["original_duration_days"],
         "tick_size": instrument.get("tick_size", ""),
         "tick_value": instrument.get("tick_value", ""),
         "min_trade_amount": instrument.get("min_trade_amount", 1),
+        "is_active": result["status"] == "Trading",
+    }
+
+
+def classify_deribit_option_from_dict(instrument: dict) -> dict:
+    """Парсинг инструмента Deribit с новой классификацией."""
+    from utils.option_classifier import classify_deribit_option
+    
+    # Преобразуем формат Deribit в формат для классификатора
+    deribit_format = {
+        "instrument_name": instrument.get("instrument_name", ""),
+        "base_currency": instrument.get("base_currency", ""),
+        "quote_currency": instrument.get("quote_currency", ""),
+        "settlement_period": instrument.get("settlement_period", ""),
+        "option_type": instrument.get("option_type", ""),
+        "strike": instrument.get("strike"),
+        "tick_size": instrument.get("tick_size", ""),
+        "contract_size": instrument.get("contract_size", ""),
+        "expiration_timestamp": instrument.get("expiration_timestamp", 0),
+        "creation_timestamp": instrument.get("creation_timestamp", 0),
+        "instrument_id": instrument.get("instrument_id"),
         "is_active": instrument.get("is_active", True),
+        "min_trade_amount": instrument.get("min_trade_amount", 1),
+    }
+    
+    result = classify_deribit_option(deribit_format)
+    
+    return {
+        "symbol": result["symbol"],
+        "base_coin": instrument.get("base_currency", ""),
+        "strike": result["strike"],
+        "option_type": result["optionsType"],
+        "expiration": result["expiry_date"],
+        "period": result["period_group"],
+        "period_type": result["period_type"],
+        "days_to_expiry": result["days_to_expiry"],
+        "original_duration_days": result["original_duration_days"],
+        "tick_size": instrument.get("tick_size", ""),
+        "tick_value": instrument.get("tick_value", ""),
+        "min_trade_amount": instrument.get("min_trade_amount", 1),
+        "is_active": result["status"] == "Trading",
     }
 
 def _days_to_expiry(expiration: datetime) -> int:
@@ -171,13 +211,15 @@ def _days_to_expiry(expiration: datetime) -> int:
 
 def _compute_expiry_sets(expiry_dates: list[date]) -> dict[str, set[date]]:
     """
-    Вычислить серии экспираций для UX-фильтров daily/weekly/monthly.
+    Классифицировать период по дням до экспирации.
+    
+    УСТАРЕВШАЯ ФУНКЦИЯ - использовать utils.option_classifier
+    
+    Используем ceil — если до экспирации 1 день 2 часа, это 2 полных дня.
 
-    Логика под Bybit:
-    - daily: ближайшие 3 уникальные даты, начиная с today (если есть)
-    - weekly: ближайшие 3 пятницы (если есть)
-    - monthly: начиная с 3-й weekly-пятницы (weekly[2]) каждые 28 дней (если даты существуют)
-      Пример: weekly = 17APR,24APR,1MAY -> monthly = 1MAY,29MAY,26JUN
+    daily: 0-1 дней (экспирация сегодня/завтра)
+    weekly: 2-14 дней
+    monthly: > 14 дней
     """
     # Bybit может возвращать инструменты в произвольном порядке, а системная дата/UTC
     # может быть сдвинута (особенно если сервис не перезапускали). Поэтому серии
@@ -200,39 +242,57 @@ def _compute_expiry_sets(expiry_dates: list[date]) -> dict[str, set[date]]:
     return {"daily": daily, "weekly": weekly, "monthly": monthly}
 
 
-def _select_by_expiration(instruments: list, period: str, position: str) -> list:
+def _classify_period_detailed(instrument: dict, exchange: str) -> dict:
     """
-    Выбрать инструменты по позиции, но по ОСИ ДАТЫ экспирации, а не по страйкам.
-
-    Возвращает список инструментов выбранной экспирации (все страйки),
-    чтобы UI мог дать выбрать конкретный контракт.
+    Детальная классификация инструмента с использованием 9 типов периодов.
+    
+    Args:
+        instrument: dict инструмента с полями launch_time/delivery_time или creation_timestamp/expiration_timestamp
+        exchange: "bybit" или "deribit"
+    
+    Returns:
+        dict с полями period_type, period_group, original_duration_days, days_to_expiry
     """
-    # Группируем по days_to_expiry (уникальные даты экспирации)
-    buckets: dict[int, list[dict]] = {}
-    for inst in instruments:
-        inst_period = inst.get("period")
-        if inst_period != period:
-            continue
-        days = inst.get("days_to_expiry")
-        if days is None:
-            continue
-        buckets.setdefault(int(days), []).append(inst)
-
-    if not buckets:
-        return []
-
-    expirations = sorted(buckets.keys())
-    if position == "nearest":
-        chosen = expirations[0]
-    elif position == "farthest":
-        chosen = expirations[-1]
+    from utils.option_classifier import classify_bybit_option, classify_deribit_option
+    
+    if exchange == "bybit":
+        result = classify_bybit_option(instrument)
+        return {
+            "period_type": result["period_type"],
+            "period_group": result["period_group"],
+            "original_duration_days": result["original_duration_days"],
+            "days_to_expiry": result["days_to_expiry"],
+        }
     else:
-        chosen = expirations[len(expirations) // 2]
+        result = classify_deribit_option(instrument)
+        return {
+            "period_type": result["period_type"],
+            "period_group": result["period_group"],
+            "original_duration_days": result["original_duration_days"],
+            "days_to_expiry": result["days_to_expiry"],
+        }
 
-    selected = buckets[chosen]
-    # Стабильная сортировка внутри даты: страйк, затем символ
-    selected.sort(key=lambda x: (x.get("strike") or 0, x.get("symbol") or ""))
-    return selected
+
+def _select_by_expiration(instruments: list, period_group: str, position: str) -> list:
+    """
+    Выбрать инструменты по позиции в группе периодов (daily/weekly/monthly).
+    
+    Использует новую систему классификации с 9 типами периодов.
+    
+    Args:
+        instruments: Список инструментов с полями period_type, period_group
+        period_group: Группа периодов ("daily", "weekly", "monthly")
+        position: Позиция ("nearest", "middle", "farthest")
+    
+    Returns:
+        Список инструментов выбранной позиции внутри группы периодов
+    """
+    from utils.option_classifier import filter_contracts_by_period
+    
+    # Используем новую функцию фильтрации
+    filtered = filter_contracts_by_period(instruments, period_group, position)
+    
+    return filtered
 
 
 @router.get("/{exchange}/instruments")
@@ -280,7 +340,7 @@ async def get_instruments(
             # становится Delivering и пропадает из списка.
             result = await client.get_instruments("bybit", base_coin=asset, status=None)
             instruments = result.get("instruments", [])
-            # Парсим Bybit инструменты
+            # Парсим Bybit инструменты с новой классификацией
             parsed = []
             expiry_dates: list[date] = []
             for inst in instruments:
@@ -298,10 +358,10 @@ async def get_instruments(
                     pass
 
                 days = _days_to_expiry(expiration) if expiration else None
-                expiration_date = expiration.date() if expiration else None
-                if expiration_date:
-                    expiry_dates.append(expiration_date)
-
+                
+                # Используем новую детальную классификацию
+                classification = _classify_period_detailed(inst, "bybit")
+                
                 try:
                     strike = float(strike_str)
                 except (ValueError, TypeError):
@@ -313,8 +373,10 @@ async def get_instruments(
                     "strike": strike,
                     "option_type": option_type,
                     "expiration": expiration.isoformat() if expiration else None,
-                    "period": "unknown",
+                    "period": classification["period_group"],  # Группа для совместимости
+                    "period_type": classification["period_type"],  # Конкретный тип (9 типов)
                     "days_to_expiry": days,
+                    "original_duration_days": classification["original_duration_days"],
                     "tick_size": inst.get("tick_size", ""),
                     "tick_value": inst.get("tick_value", ""),
                     "min_trade_amount": inst.get("lot_size", 1),
@@ -355,7 +417,11 @@ async def get_instruments(
             )
             result = await client.get_instruments("deribit", currency=asset)
             instruments = result.get("instruments", [])
-            parsed = [_parse_deribit_instrument(inst) for inst in instruments]
+            # Парсим Deribit инструменты с новой классификацией
+            parsed = []
+            for inst in instruments:
+                classified = classify_deribit_option_from_dict(inst)
+                parsed.append(classified)
 
         # Фильтрация по Call/Put
         if option_type:
